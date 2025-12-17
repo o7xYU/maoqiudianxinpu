@@ -1,5 +1,5 @@
 {
-  "display_name": "Acsus-Paws-Puffs",
+  "display_name": "Acsus-Faws-Puffs",
   "loading_order": 10,
   "requires": [],
   "optional": [],
@@ -7,6 +7,6 @@
   "css": "style.css",
   "author": "AcSus",
   "version": "2.0.0",
-  "homePage": "https://github.com/Hmkovo/Acsus-Paws-Puffs",
+  "homePage": "https://github.com/o7xYU/maoqiudianxinpu",
   "auto_update": true
 }
