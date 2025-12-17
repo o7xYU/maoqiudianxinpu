@@ -37,7 +37,7 @@ export class FontManagerUI {
       fontSearchQuery: '',         // 搜索关键词
       fontFilterTag: 'all',        // 筛选标签
       fontSortBy: 'name',          // 排序方式
-      fontAddExpanded: false,      // 添加区域展开状态
+      fontAddExpanded: true,       // 添加区域展开状态（默认展开便于看到新布局）
       expandedFonts: new Set(),    // 展开的字体项
       importMergeMode: true,       // 导入模式（合并/替换）
       tagManagerExpanded: false,   // 标签管理展开状态
@@ -110,11 +110,16 @@ export class FontManagerUI {
             <i class="fa fa-chevron-${this.uiState.fontAddExpanded ? 'up' : 'down'}" id="font-add-icon"></i>
           </div>
           <div class="font-add-content" id="font-add-content" style="${this.uiState.fontAddExpanded ? '' : 'display: none;'}">
+            <div class="font-add-subtitle">一眼看到所有导入方式：粘贴整段 CSS 或仅填链接。</div>
+
             <div class="font-add-link-hint">
               <div class="font-add-link-icon">
                 <i class="fa-solid fa-globe"></i>
               </div>
-              <a href="https://fonts.zeoseven.com/browse/" target="_blank">前往字体网站浏览和选择字体</a>
+              <div>
+                <div class="font-add-link-title">没有现成链接？</div>
+                <a href="https://fonts.zeoseven.com/browse/" target="_blank">前往字体网站浏览和选择字体</a>
+              </div>
             </div>
 
             <div class="font-add-grid">
@@ -123,10 +128,11 @@ export class FontManagerUI {
                   <span class="pill">方式一</span>
                   <span>直接粘贴 CSS</span>
                 </div>
+                <p class="font-add-desc">支持 @import 或 @font-face，留空则使用右侧链接导入。</p>
                 <textarea
                   id="font-input"
                   class="font-input-area"
-                  placeholder='在这里粘贴 @import 或 @font-face 代码，留空则使用右侧链接导入：\n- @import 或完整 CSS 将按原样保存\n- .css 链接会自动包裹 @import\n- .ttf/.otf/.woff/.woff2 链接自动生成 @font-face'
+                  placeholder='- 粘贴 @import 或完整 CSS 将按原样保存\n- 只贴 .css 链接会自动包裹 @import\n- .ttf/.otf/.woff/.woff2 链接自动生成 @font-face'
                   rows="5"
                 ></textarea>
               </div>
@@ -136,6 +142,7 @@ export class FontManagerUI {
                   <span class="pill">方式二</span>
                   <span>填写链接自动识别</span>
                 </div>
+                <p class="font-add-desc">只填一个 URL 即可，CSS 结尾走 @import，字体文件走 @font-face。</p>
                 <div class="font-add-field">
                   <label for="font-url-input">URL 链接</label>
                   <input type="text" id="font-url-input" placeholder="例如 https://example.com/font.woff2 或 result.css" class="text_pole">
@@ -145,7 +152,7 @@ export class FontManagerUI {
                   <input type="text" id="font-name-input" placeholder="自定义字体名称" class="text_pole">
                 </div>
                 <button id="add-font-btn" class="menu_button compact-btn full-width">+ 添加</button>
-                <div class="font-add-hint">如果链接以 .css 结尾将自动套用 @import，其余字体文件会生成 @font-face。</div>
+                <div class="font-add-hint">提示：没有 @font-face 时请填写 Family 名称，以便自动生成。</div>
               </div>
             </div>
           </div>

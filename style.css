@@ -451,6 +451,13 @@
   padding: 12px;
 }
 
+.font-add-subtitle {
+  margin-bottom: 8px;
+  color: var(--SmartThemeBodyColor);
+  opacity: 0.8;
+  font-size: 0.95em;
+}
+
 .font-add-link-hint {
   display: flex;
   align-items: center;
@@ -465,6 +472,11 @@
 .font-add-link-hint a {
   color: var(--SmartThemeBodyColor);
   text-decoration: underline;
+}
+
+.font-add-link-title {
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 
 .font-add-link-icon {
@@ -507,6 +519,13 @@
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 0.8em;
+}
+
+.font-add-desc {
+  margin: 0;
+  color: var(--SmartThemeBodyColor);
+  opacity: 0.75;
+  font-size: 0.92em;
 }
 
 .font-input-area {
