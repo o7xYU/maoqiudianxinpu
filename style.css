@@ -451,6 +451,96 @@
   padding: 12px;
 }
 
+.font-add-link-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--SmartThemeBodyColor) 6%, var(--SmartThemeBlurTintColor) 94%);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  color: var(--SmartThemeBodyColor);
+}
+
+.font-add-link-hint a {
+  color: var(--SmartThemeBodyColor);
+  text-decoration: underline;
+}
+
+.font-add-link-icon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--SmartThemeQuoteColor) 18%, var(--SmartThemeBlurTintColor) 82%);
+  color: var(--SmartThemeOnionColor);
+}
+
+.font-add-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.font-add-card {
+  background: color-mix(in srgb, var(--SmartThemeBodyColor) 4%, var(--SmartThemeBlurTintColor) 96%);
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBodyColor) 10%, transparent 90%);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.font-add-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--SmartThemeBodyColor);
+}
+
+.font-add-card .pill {
+  background: color-mix(in srgb, var(--SmartThemeQuoteColor) 20%, var(--SmartThemeBlurTintColor) 80%);
+  color: var(--SmartThemeOnionColor);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8em;
+}
+
+.font-input-area {
+  width: 100%;
+  border-radius: 6px;
+  padding: 8px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 0.9em;
+  min-height: 120px;
+}
+
+.font-add-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.font-add-field label {
+  font-size: 0.9em;
+  color: var(--SmartThemeBodyColor);
+  opacity: 0.85;
+}
+
+.font-add-hint {
+  font-size: 0.85em;
+  color: var(--SmartThemeBodyColor);
+  opacity: 0.8;
+}
+
+.full-width {
+  width: 100%;
+}
+
 /* 字体库区域 */
 .font-warehouse-section {
   background: color-mix(in srgb, var(--SmartThemeBodyColor) 3%, var(--SmartThemeBlurTintColor) 97%);

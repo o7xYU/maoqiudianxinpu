@@ -110,25 +110,44 @@ export class FontManagerUI {
             <i class="fa fa-chevron-${this.uiState.fontAddExpanded ? 'up' : 'down'}" id="font-add-icon"></i>
           </div>
           <div class="font-add-content" id="font-add-content" style="${this.uiState.fontAddExpanded ? '' : 'display: none;'}">
-            <!-- 字体网站链接 -->
-            <div style="margin-bottom: 8px; padding: 6px 10px; background: color-mix(in srgb, var(--SmartThemeBodyColor) 5%, var(--SmartThemeBlurTintColor) 95%); border-radius: 4px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-globe" style="color: var(--SmartThemeBodyColor); opacity: 0.7;"></i>
-                <a href="https://fonts.zeoseven.com/browse/" target="_blank" style="color: var(--SmartThemeBodyColor); text-decoration: underline; flex: 1;">
-                  前往字体网站浏览和选择字体
-                </a>
+            <div class="font-add-link-hint">
+              <div class="font-add-link-icon">
+                <i class="fa-solid fa-globe"></i>
+              </div>
+              <a href="https://fonts.zeoseven.com/browse/" target="_blank">前往字体网站浏览和选择字体</a>
+            </div>
+
+            <div class="font-add-grid">
+              <div class="font-add-card">
+                <div class="font-add-card-title">
+                  <span class="pill">方式一</span>
+                  <span>直接粘贴 CSS</span>
+                </div>
+                <textarea
+                  id="font-input"
+                  class="font-input-area"
+                  placeholder='在这里粘贴 @import 或 @font-face 代码，留空则使用右侧链接导入：\n- @import 或完整 CSS 将按原样保存\n- .css 链接会自动包裹 @import\n- .ttf/.otf/.woff/.woff2 链接自动生成 @font-face'
+                  rows="5"
+                ></textarea>
+              </div>
+
+              <div class="font-add-card">
+                <div class="font-add-card-title">
+                  <span class="pill">方式二</span>
+                  <span>填写链接自动识别</span>
+                </div>
+                <div class="font-add-field">
+                  <label for="font-url-input">URL 链接</label>
+                  <input type="text" id="font-url-input" placeholder="例如 https://example.com/font.woff2 或 result.css" class="text_pole">
+                </div>
+                <div class="font-add-field">
+                  <label for="font-name-input">Family 名称</label>
+                  <input type="text" id="font-name-input" placeholder="自定义字体名称" class="text_pole">
+                </div>
+                <button id="add-font-btn" class="menu_button compact-btn full-width">+ 添加</button>
+                <div class="font-add-hint">如果链接以 .css 结尾将自动套用 @import，其余字体文件会生成 @font-face。</div>
               </div>
             </div>
-            
-            <textarea id="font-input" placeholder='粘贴CSS或者留空直接填写下方链接：\n- 支持@import/@font-face完整CSS\n- 如果是 .css 链接会自动包裹 @import\n- 如果是 .ttf/.otf/.woff 等字体文件会自动生成 @font-face' rows="5"></textarea>
-            <div class="font-add-controls">
-              <input type="text" id="font-url-input" placeholder="字体链接（例如 https://example.com/font.woff2 或 result.css）" class="text_pole">
-              <input type="text" id="font-name-input" placeholder="字体 family 名称" class="text_pole">
-              <button id="add-font-btn" class="menu_button compact-btn">
-                + 添加
-              </button>
-            </div>
-            <div class="font-add-hint">直接填写链接即可自动匹配导入方式，family 为字体名称。</div>
           </div>
         </div>
         
