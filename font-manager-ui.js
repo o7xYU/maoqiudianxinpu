@@ -483,63 +483,78 @@ export class FontManagerUI {
     const urlInput = this.container.querySelector('#font-url-input')?.value.trim() || '';
     const customName = this.container.querySelector('#font-name-input').value.trim();
 
-    const finalInput = cssInput || urlInput;
+    const finalInput = urlInput || cssInput;
 
     if (!finalInput) {
       logger.warn('[FontManagerUI.handleAddFont] 用户未输入字体代码或链接');
-      toastr.warning('请输入CSS代码或字体链接');
+      toastr.warning('请输入字体链接或 CSS 代码');
       return;
-    }
-
-    // 如果仅提供链接且格式不是 css，优先要求 family 名称
-    if (!cssInput && urlInput && !customName) {
-      const lowerUrl = urlInput.toLowerCase();
-      if (!lowerUrl.endsWith('.css')) {
-        logger.warn('[FontManagerUI.handleAddFont] 仅提供字体文件链接但未填写family名称');
-        toastr.warning('请输入字体family名称');
-        return;
-      }
     }
 
     logger.debug('[FontManagerUI.handleAddFont] 开始添加字体，自定义名称:', customName || '无');
 
-    // 解析字体
+    const buildDirectFont = (url, familyOverride = null) => {
+      const built = this.fontManager.buildCssFromUrl(url, familyOverride || null);
+      if (!built) return null;
+
+      const finalName = familyOverride || built.fontFamily || `Font-${Date.now()}`;
+      return {
+        name: finalName,
+        displayName: finalName,
+        url,
+        fontFamily: built.fontFamily || finalName,
+        fontId: null,
+        css: built.css,
+        tags: [],
+        order: Date.now(),
+        addedAt: new Date().toISOString(),
+        custom: {}
+      };
+    };
+
     let fontData = null;
 
-    // 检查是否只有@import（没有font-family）
-    if (cssInput && cssInput.includes('@import') && !cssInput.includes('font-family') && !urlInput) {
-      if (!customName) {
-        logger.warn('[FontManagerUI.handleAddFont] 仅包含@import但未提供自定义名称');
-        toastr.warning('检测到仅包含@import链接，请输入自定义字体名称');
+    if (urlInput) {
+      fontData = buildDirectFont(urlInput, customName || null);
+      if (!fontData) {
+        logger.warn('[FontManagerUI.handleAddFont] 链接格式无效:', urlInput);
+        toastr.error('链接格式不正确，请输入有效的 http/https 地址');
         return;
       }
+    } else if (cssInput) {
+      const isOnlyLink = /^(https?:\/\/|\/\/)[^\s]+$/i.test(cssInput);
 
-      fontData = this.fontManager.parseFont(cssInput, customName);
-      if (fontData) {
-        fontData.css = `${cssInput}\nbody { font-family: "${customName}"; }`;
-        fontData.fontFamily = customName;
+      if (isOnlyLink) {
+        fontData = buildDirectFont(cssInput, customName || null);
+      } else {
+        // 检查是否只有@import（没有font-family）
+        if (cssInput.includes('@import') && !cssInput.includes('font-family') && !customName) {
+          logger.warn('[FontManagerUI.handleAddFont] 仅包含@import但未提供自定义名称');
+          toastr.warning('检测到仅包含@import链接，请输入自定义字体名称');
+          return;
+        }
+
+        fontData = this.fontManager.parseFont(cssInput, customName);
       }
-    } else {
-      fontData = this.fontManager.parseFont(finalInput, customName);
     }
 
     if (!fontData) {
       logger.warn('[FontManagerUI.handleAddFont] 解析字体失败，输入:', finalInput.substring(0, 100) + '...');
-      toastr.error('无法解析字体代码，请检查格式');
+      toastr.error('无法解析字体，请仅填写链接或粘贴有效的 CSS');
       return;
     }
 
     // 添加字体
     const success = await this.fontManager.addFont(fontData);
 
-      if (success) {
-        // 清空输入
-        this.container.querySelector('#font-input').value = '';
-        const urlInputEl = this.container.querySelector('#font-url-input');
-        if (urlInputEl) urlInputEl.value = '';
-        this.container.querySelector('#font-name-input').value = '';
+    if (success) {
+      // 清空输入
+      this.container.querySelector('#font-input').value = '';
+      const urlInputEl = this.container.querySelector('#font-url-input');
+      if (urlInputEl) urlInputEl.value = '';
+      this.container.querySelector('#font-name-input').value = '';
 
-        this.updateCssPreview();
+      this.updateCssPreview();
 
       // 自动应用
       await this.fontManager.setCurrentFont(fontData.name);
