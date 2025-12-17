@@ -708,6 +708,31 @@ select.compact {
   animation: slideDown 0.2s ease-out;
 }
 
+.font-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.font-link-label {
+  font-weight: 600;
+  color: var(--SmartThemeQuoteColor);
+  min-width: 40px;
+}
+
+.font-link {
+  color: var(--SmartThemeBodyColor);
+  text-decoration: underline;
+  opacity: 0.9;
+}
+
+.font-link-empty {
+  opacity: 0.6;
+  font-style: italic;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;

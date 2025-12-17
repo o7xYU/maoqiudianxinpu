@@ -120,21 +120,15 @@ export class FontManagerUI {
               </div>
             </div>
             
-            <textarea id="font-input" placeholder='支持多种格式：
-1. 完整字体代码：
-@import url("https://fontsapi.zeoseven.com/256/main/result.css");
-body {
-    font-family: "Huiwen-mincho";
-}
-
-2. 仅@import链接（需填写自定义名称）：
-@import url("https://fontsapi.zeoseven.com/119/main/result.css");' rows="5"></textarea>
+            <textarea id="font-input" placeholder='粘贴CSS或者留空直接填写下方链接：\n- 支持@import/@font-face完整CSS\n- 如果是 .css 链接会自动包裹 @import\n- 如果是 .ttf/.otf/.woff 等字体文件会自动生成 @font-face' rows="5"></textarea>
             <div class="font-add-controls">
-              <input type="text" id="font-name-input" placeholder="自定义字体名称（某些格式必填）" class="text_pole">
+              <input type="text" id="font-url-input" placeholder="字体链接（例如 https://example.com/font.woff2 或 result.css）" class="text_pole">
+              <input type="text" id="font-name-input" placeholder="字体 family 名称" class="text_pole">
               <button id="add-font-btn" class="menu_button compact-btn">
                 + 添加
               </button>
             </div>
+            <div class="font-add-hint">直接填写链接即可自动匹配导入方式，family 为字体名称。</div>
           </div>
         </div>
         
@@ -455,12 +449,22 @@ body {
    * @async
    */
   async handleAddFont() {
-    const input = this.container.querySelector('#font-input').value.trim();
+    const cssInput = this.container.querySelector('#font-input').value.trim();
+    const urlInput = this.container.querySelector('#font-url-input')?.value.trim() || '';
     const customName = this.container.querySelector('#font-name-input').value.trim();
 
-    if (!input) {
-      logger.warn('[FontManagerUI.handleAddFont] 用户未输入字体代码');
-      toastr.warning('请输入字体代码');
+    const finalInput = cssInput || urlInput;
+
+    if (!finalInput) {
+      logger.warn('[FontManagerUI.handleAddFont] 用户未输入字体代码或链接');
+      toastr.warning('请输入CSS代码或字体链接');
+      return;
+    }
+
+    // 如果仅提供链接且不是CSS代码，优先要求family名称
+    if (!cssInput && urlInput && !customName) {
+      logger.warn('[FontManagerUI.handleAddFont] 仅提供链接但未填写family名称');
+      toastr.warning('请输入字体family名称');
       return;
     }
 
@@ -470,24 +474,24 @@ body {
     let fontData = null;
 
     // 检查是否只有@import（没有font-family）
-    if (input.includes('@import') && !input.includes('font-family')) {
+    if (cssInput && cssInput.includes('@import') && !cssInput.includes('font-family') && !urlInput) {
       if (!customName) {
         logger.warn('[FontManagerUI.handleAddFont] 仅包含@import但未提供自定义名称');
         toastr.warning('检测到仅包含@import链接，请输入自定义字体名称');
         return;
       }
 
-      fontData = this.fontManager.parseFont(input, customName);
+      fontData = this.fontManager.parseFont(cssInput, customName);
       if (fontData) {
-        fontData.css = `${input}\nbody { font-family: "${customName}"; }`;
+        fontData.css = `${cssInput}\nbody { font-family: "${customName}"; }`;
         fontData.fontFamily = customName;
       }
     } else {
-      fontData = this.fontManager.parseFont(input, customName);
+      fontData = this.fontManager.parseFont(finalInput, customName);
     }
 
     if (!fontData) {
-      logger.warn('[FontManagerUI.handleAddFont] 解析字体失败，输入:', input.substring(0, 100) + '...');
+      logger.warn('[FontManagerUI.handleAddFont] 解析字体失败，输入:', finalInput.substring(0, 100) + '...');
       toastr.error('无法解析字体代码，请检查格式');
       return;
     }
@@ -498,6 +502,8 @@ body {
     if (success) {
       // 清空输入
       this.container.querySelector('#font-input').value = '';
+      const urlInputEl = this.container.querySelector('#font-url-input');
+      if (urlInputEl) urlInputEl.value = '';
       this.container.querySelector('#font-name-input').value = '';
 
       // 自动应用
@@ -736,6 +742,14 @@ body {
       `).join('')
       : '<div class="no-tags">暂无标签</div>';
 
+    const fontLinkSection = `
+      <div class="font-link-row">
+        <span class="font-link-label">链接</span>
+        ${font.url
+          ? `<a href="${font.url}" target="_blank" class="font-link" title="${font.url}">${font.url}</a>`
+          : '<span class="font-link-empty">未提供链接</span>'}
+      </div>`;
+
     return `
       <div class="font-item ${isCurrent ? 'current' : ''} ${isExpanded ? 'expanded' : ''} ${this.uiState.batchDeleteMode ? 'batch-mode' : ''}" 
            data-font-name="${font.name}">
@@ -777,6 +791,7 @@ body {
         
         <!-- 展开的详情区域（批量删除模式下隐藏） -->
         <div class="font-item-details" style="display: ${!this.uiState.batchDeleteMode && isExpanded ? 'block' : 'none'};">
+          ${fontLinkSection}
           <div class="tag-editor">
             <div class="tag-section">
               <h6>当前标签</h6>
