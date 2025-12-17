@@ -47,6 +47,74 @@ export class FontManager {
   }
 
   /**
+   * 根据直接链接生成可用的 CSS 片段
+   *
+   * @description
+   * 支持自动识别 .css 和字体文件链接，生成对应的 @import 或 @font-face
+   *
+   * @param {string} url - 字体或 CSS 链接
+   * @param {string|null} [familyName=null] - 自定义的字体族名称
+   * @returns {{ css: string, fontFamily: string|null }|null}
+   */
+  buildCssFromUrl(url, familyName = null) {
+    const trimmedUrl = url.trim();
+
+    const getExtension = (link) => {
+      const cleanUrl = link.split(/[?#]/)[0];
+      const parts = cleanUrl.split('.');
+      return parts.length > 1 ? parts.pop().toLowerCase() : '';
+    };
+
+    const deriveNameFromUrl = (link) => {
+      try {
+        const cleanUrl = link.split(/[?#]/)[0];
+        const segments = cleanUrl.split('/');
+        const last = segments.pop() || '';
+        const base = last.split('.').shift();
+        return base || null;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const mapFormat = (ext) => {
+      const map = {
+        ttf: 'truetype',
+        ttc: 'truetype',
+        otf: 'opentype',
+        woff: 'woff',
+        woff2: 'woff2',
+        tiff: 'truetype'
+      };
+      return map[ext] || '';
+    };
+
+    if (!/^(https?:\/\/|\/\/)[^\s]+$/i.test(trimmedUrl)) {
+      return null;
+    }
+
+    const ext = getExtension(trimmedUrl);
+    const resolvedFamily = familyName || deriveNameFromUrl(trimmedUrl) || null;
+
+    if (ext === 'css') {
+      return {
+        css: `@import("${trimmedUrl}");`,
+        fontFamily: resolvedFamily
+      };
+    }
+
+    const format = mapFormat(ext);
+
+    const familyForFace = resolvedFamily || 'CustomFont';
+    const cssBlock = `@font-face {\n  font-family: '${familyForFace}';\n  src: url('${trimmedUrl}')${format ? ` format('${format}')` : ''};\n  font-weight: normal;\n  font-style: normal;\n}`;
+
+    return {
+      css: cssBlock,
+      fontFamily: familyForFace
+    };
+  }
+
+  /**
    * 初始化字体管理器
    * 
    * @description
@@ -167,8 +235,10 @@ export class FontManager {
     // 生成CSS代码
     let css = '';
 
-    // 1. 添加字体导入链接
-    if (font.url) {
+    // 1. 添加字体导入或自定义CSS
+    if (font.css) {
+      css += `${font.css}\n\n`;
+    } else if (font.url) {
       css += `@import url("${font.url}");\n\n`;
     }
 
@@ -265,25 +335,57 @@ export class FontManager {
   parseFont(input, customName = null) {
     logger.debug('[FontManager.parseFont] 开始解析字体代码');
 
+    const trimmedInput = input.trim();
+
+    // 直接输入链接的情况
+    const isDirectUrl = /^(https?:\/\/|\/\/)[^\s]+$/i.test(trimmedInput);
+    if (isDirectUrl) {
+      const url = trimmedInput;
+      const directCss = this.buildCssFromUrl(url, customName);
+
+      if (!directCss) {
+        logger.warn('[FontManager.parseFont] 直接链接缺少family名称，且无法从URL推断');
+        return null;
+      }
+
+      const defaultName = directCss.fontFamily || customName || `Font-${Date.now()}`;
+
+      return {
+        name: defaultName,
+        displayName: defaultName,
+        url: url,
+        fontFamily: directCss.fontFamily || defaultName,
+        fontId: null,
+        css: directCss.css,
+        tags: [],
+        order: Date.now(),
+        addedAt: new Date().toISOString(),
+        custom: {}
+      };
+    }
+
     // 匹配 @import url(...) 格式
-    const importMatch = input.match(/@import\s+url\(["']([^"']+)["']\)/);
-    if (!importMatch) {
-      const preview = input.substring(0, 100) + (input.length > 100 ? '...' : '');
+    const importMatch = trimmedInput.match(/@import\s+url\(["']([^"']+)["']\)/i);
+    const fontFaceUrlMatch = trimmedInput.match(/@font-face[\s\S]*?url\(['"]?([^'"\)]+)['"]?\)/i);
+    const url = importMatch ? importMatch[1] : (fontFaceUrlMatch ? fontFaceUrlMatch[1] : null);
+
+    // 匹配 font-family: "字体名"
+    const familyMatch = trimmedInput.match(/font-family:\s*["']?([^"';]+)["']?/i);
+    const fontFamily = familyMatch ? familyMatch[1].trim() : (customName || null);
+
+    if (!importMatch && !/font-face/i.test(trimmedInput) && !url) {
+      const preview = trimmedInput.substring(0, 100) + (trimmedInput.length > 100 ? '...' : '');
       logger.warn('[FontManager.parseFont] 无法解析字体链接，输入:', preview);
       return null;
     }
 
-    const url = importMatch[1];
-
-    // 匹配 font-family: "字体名"
-    const familyMatch = input.match(/font-family:\s*["']?([^"';]+)["']?/);
-    const fontFamily = familyMatch ? familyMatch[1].trim() : (customName || 'Unknown Font');
-
     // 从URL中提取字体ID（zeoseven专用）
     let fontId = null;
-    const idMatch = url.match(/fontsapi\.zeoseven\.com\/(\d+)\//);
-    if (idMatch) {
-      fontId = idMatch[1];
+    if (url) {
+      const idMatch = url.match(/fontsapi\.zeoseven\.com\/(\d+)\//);
+      if (idMatch) {
+        fontId = idMatch[1];
+      }
     }
 
     // 生成字体名称
@@ -295,7 +397,7 @@ export class FontManager {
       name: defaultName,              // 唯一标识
       displayName: defaultName,       // 显示名称（可编辑）
       url: url,                       // 字体链接
-      fontFamily: fontFamily,         // 字体族名
+      fontFamily: fontFamily || defaultName,         // 字体族名
       fontId: fontId,                 // zeoseven ID
       css: input,                     // 原始CSS代码
       tags: [],                       // 标签列表

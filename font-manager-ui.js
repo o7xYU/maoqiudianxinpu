@@ -37,7 +37,7 @@ export class FontManagerUI {
       fontSearchQuery: '',         // 搜索关键词
       fontFilterTag: 'all',        // 筛选标签
       fontSortBy: 'name',          // 排序方式
-      fontAddExpanded: false,      // 添加区域展开状态
+      fontAddExpanded: true,       // 添加区域展开状态（默认展开便于看到新布局）
       expandedFonts: new Set(),    // 展开的字体项
       importMergeMode: true,       // 导入模式（合并/替换）
       tagManagerExpanded: false,   // 标签管理展开状态
@@ -110,30 +110,44 @@ export class FontManagerUI {
             <i class="fa fa-chevron-${this.uiState.fontAddExpanded ? 'up' : 'down'}" id="font-add-icon"></i>
           </div>
           <div class="font-add-content" id="font-add-content" style="${this.uiState.fontAddExpanded ? '' : 'display: none;'}">
-            <!-- 字体网站链接 -->
-            <div style="margin-bottom: 8px; padding: 6px 10px; background: color-mix(in srgb, var(--SmartThemeBodyColor) 5%, var(--SmartThemeBlurTintColor) 95%); border-radius: 4px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-globe" style="color: var(--SmartThemeBodyColor); opacity: 0.7;"></i>
-                <a href="https://fonts.zeoseven.com/browse/" target="_blank" style="color: var(--SmartThemeBodyColor); text-decoration: underline; flex: 1;">
-                  前往字体网站浏览和选择字体
-                </a>
-              </div>
-            </div>
-            
-            <textarea id="font-input" placeholder='支持多种格式：
-1. 完整字体代码：
-@import url("https://fontsapi.zeoseven.com/256/main/result.css");
-body {
-    font-family: "Huiwen-mincho";
-}
+            <div class="font-add-subtitle">填一个链接即可：.css 自动包裹 @import，字体文件自动生成 @font-face。</div>
 
-2. 仅@import链接（需填写自定义名称）：
-@import url("https://fontsapi.zeoseven.com/119/main/result.css");' rows="5"></textarea>
-            <div class="font-add-controls">
-              <input type="text" id="font-name-input" placeholder="自定义字体名称（某些格式必填）" class="text_pole">
-              <button id="add-font-btn" class="menu_button compact-btn">
-                + 添加
-              </button>
+            <div class="font-add-grid">
+              <div class="font-add-card full">
+                <div class="font-add-card-title">
+                  <span class="pill">推荐</span>
+                  <span>填写链接自动识别</span>
+                </div>
+                <p class="font-add-desc">URL 以 .css 结尾时会生成 @import("链接")，.ttf/.otf/.woff/.woff2/.tiff 则生成对应格式的 @font-face。</p>
+                <div class="font-add-field">
+                  <label for="font-url-input">URL 链接</label>
+                  <input type="text" id="font-url-input" placeholder="例如 https://阿巴阿巴.比哦比哦.tiff 或 fonts.css" class="text_pole">
+                </div>
+                <div class="font-add-field">
+                  <label for="font-name-input">Family 名称</label>
+                  <input type="text" id="font-name-input" placeholder="自定义字体名称（用于 @font-face）" class="text_pole">
+                </div>
+                <div class="font-generated-preview">
+                  <div class="font-generated-header">生成的 CSS</div>
+                  <pre id="font-css-preview" class="font-css-preview">填写链接后将自动展示 @import 或 @font-face</pre>
+                </div>
+                <button id="add-font-btn" class="menu_button compact-btn full-width">+ 添加</button>
+                <div class="font-add-hint">提示：只需一条链接，插件会自动选择 @import 或 @font-face。</div>
+              </div>
+
+              <div class="font-add-card">
+                <div class="font-add-card-title">
+                  <span class="pill">备用</span>
+                  <span>手动粘贴 CSS</span>
+                </div>
+                <p class="font-add-desc">仍然支持直接粘贴 @import 或完整 @font-face 代码。</p>
+                <textarea
+                  id="font-input"
+                  class="font-input-area"
+                  placeholder='在此粘贴完整 CSS 代码；如果只粘贴链接，也会按上方规则自动识别。'
+                  rows="5"
+                ></textarea>
+              </div>
             </div>
           </div>
         </div>
@@ -323,6 +337,16 @@ body {
       addFontBtn.addEventListener('click', () => this.handleAddFont());
     }
 
+    // 即时展示自动生成的 CSS
+    const urlInput = this.container.querySelector('#font-url-input');
+    const nameInput = this.container.querySelector('#font-name-input');
+    if (urlInput) {
+      urlInput.addEventListener('input', () => this.updateCssPreview());
+    }
+    if (nameInput) {
+      nameInput.addEventListener('input', () => this.updateCssPreview());
+    }
+
     // 搜索框（搜索时重置到第1页）
     const searchInput = this.container.querySelector('#font-search');
     if (searchInput) {
@@ -455,13 +479,26 @@ body {
    * @async
    */
   async handleAddFont() {
-    const input = this.container.querySelector('#font-input').value.trim();
+    const cssInput = this.container.querySelector('#font-input').value.trim();
+    const urlInput = this.container.querySelector('#font-url-input')?.value.trim() || '';
     const customName = this.container.querySelector('#font-name-input').value.trim();
 
-    if (!input) {
-      logger.warn('[FontManagerUI.handleAddFont] 用户未输入字体代码');
-      toastr.warning('请输入字体代码');
+    const finalInput = cssInput || urlInput;
+
+    if (!finalInput) {
+      logger.warn('[FontManagerUI.handleAddFont] 用户未输入字体代码或链接');
+      toastr.warning('请输入CSS代码或字体链接');
       return;
+    }
+
+    // 如果仅提供链接且格式不是 css，优先要求 family 名称
+    if (!cssInput && urlInput && !customName) {
+      const lowerUrl = urlInput.toLowerCase();
+      if (!lowerUrl.endsWith('.css')) {
+        logger.warn('[FontManagerUI.handleAddFont] 仅提供字体文件链接但未填写family名称');
+        toastr.warning('请输入字体family名称');
+        return;
+      }
     }
 
     logger.debug('[FontManagerUI.handleAddFont] 开始添加字体，自定义名称:', customName || '无');
@@ -470,24 +507,24 @@ body {
     let fontData = null;
 
     // 检查是否只有@import（没有font-family）
-    if (input.includes('@import') && !input.includes('font-family')) {
+    if (cssInput && cssInput.includes('@import') && !cssInput.includes('font-family') && !urlInput) {
       if (!customName) {
         logger.warn('[FontManagerUI.handleAddFont] 仅包含@import但未提供自定义名称');
         toastr.warning('检测到仅包含@import链接，请输入自定义字体名称');
         return;
       }
 
-      fontData = this.fontManager.parseFont(input, customName);
+      fontData = this.fontManager.parseFont(cssInput, customName);
       if (fontData) {
-        fontData.css = `${input}\nbody { font-family: "${customName}"; }`;
+        fontData.css = `${cssInput}\nbody { font-family: "${customName}"; }`;
         fontData.fontFamily = customName;
       }
     } else {
-      fontData = this.fontManager.parseFont(input, customName);
+      fontData = this.fontManager.parseFont(finalInput, customName);
     }
 
     if (!fontData) {
-      logger.warn('[FontManagerUI.handleAddFont] 解析字体失败，输入:', input.substring(0, 100) + '...');
+      logger.warn('[FontManagerUI.handleAddFont] 解析字体失败，输入:', finalInput.substring(0, 100) + '...');
       toastr.error('无法解析字体代码，请检查格式');
       return;
     }
@@ -495,10 +532,14 @@ body {
     // 添加字体
     const success = await this.fontManager.addFont(fontData);
 
-    if (success) {
-      // 清空输入
-      this.container.querySelector('#font-input').value = '';
-      this.container.querySelector('#font-name-input').value = '';
+      if (success) {
+        // 清空输入
+        this.container.querySelector('#font-input').value = '';
+        const urlInputEl = this.container.querySelector('#font-url-input');
+        if (urlInputEl) urlInputEl.value = '';
+        this.container.querySelector('#font-name-input').value = '';
+
+        this.updateCssPreview();
 
       // 自动应用
       await this.fontManager.setCurrentFont(fontData.name);
@@ -510,6 +551,31 @@ body {
       logger.warn('[FontManagerUI.handleAddFont] 字体添加失败:', fontData.name);
       toastr.error('字体添加失败，可能已存在同名字体');
     }
+  }
+
+  /**
+   * 根据链接和 family 预览将要生成的 CSS
+   */
+  updateCssPreview() {
+    const previewEl = this.container.querySelector('#font-css-preview');
+    if (!previewEl) return;
+
+    const url = this.container.querySelector('#font-url-input')?.value.trim();
+    const family = this.container.querySelector('#font-name-input')?.value.trim() || null;
+
+    if (!url) {
+      previewEl.textContent = '填写链接后将自动展示 @import 或 @font-face';
+      return;
+    }
+
+    const built = this.fontManager.buildCssFromUrl(url, family || null);
+
+    if (!built) {
+      previewEl.textContent = '链接格式不正确，请输入以 http/https 开头的有效地址';
+      return;
+    }
+
+    previewEl.textContent = built.css;
   }
 
   /**
@@ -736,6 +802,14 @@ body {
       `).join('')
       : '<div class="no-tags">暂无标签</div>';
 
+    const fontLinkSection = `
+      <div class="font-link-row">
+        <span class="font-link-label">链接</span>
+        ${font.url
+          ? `<a href="${font.url}" target="_blank" class="font-link" title="${font.url}">${font.url}</a>`
+          : '<span class="font-link-empty">未提供链接</span>'}
+      </div>`;
+
     return `
       <div class="font-item ${isCurrent ? 'current' : ''} ${isExpanded ? 'expanded' : ''} ${this.uiState.batchDeleteMode ? 'batch-mode' : ''}" 
            data-font-name="${font.name}">
@@ -777,6 +851,7 @@ body {
         
         <!-- 展开的详情区域（批量删除模式下隐藏） -->
         <div class="font-item-details" style="display: ${!this.uiState.batchDeleteMode && isExpanded ? 'block' : 'none'};">
+          ${fontLinkSection}
           <div class="tag-editor">
             <div class="tag-section">
               <h6>当前标签</h6>
