@@ -110,49 +110,43 @@ export class FontManagerUI {
             <i class="fa fa-chevron-${this.uiState.fontAddExpanded ? 'up' : 'down'}" id="font-add-icon"></i>
           </div>
           <div class="font-add-content" id="font-add-content" style="${this.uiState.fontAddExpanded ? '' : 'display: none;'}">
-            <div class="font-add-subtitle">一眼看到所有导入方式：粘贴整段 CSS 或仅填链接。</div>
-
-            <div class="font-add-link-hint">
-              <div class="font-add-link-icon">
-                <i class="fa-solid fa-globe"></i>
-              </div>
-              <div>
-                <div class="font-add-link-title">没有现成链接？</div>
-                <a href="https://fonts.zeoseven.com/browse/" target="_blank">前往字体网站浏览和选择字体</a>
-              </div>
-            </div>
+            <div class="font-add-subtitle">填一个链接即可：.css 自动包裹 @import，字体文件自动生成 @font-face。</div>
 
             <div class="font-add-grid">
-              <div class="font-add-card">
+              <div class="font-add-card full">
                 <div class="font-add-card-title">
-                  <span class="pill">方式一</span>
-                  <span>直接粘贴 CSS</span>
-                </div>
-                <p class="font-add-desc">支持 @import 或 @font-face，留空则使用右侧链接导入。</p>
-                <textarea
-                  id="font-input"
-                  class="font-input-area"
-                  placeholder='- 粘贴 @import 或完整 CSS 将按原样保存\n- 只贴 .css 链接会自动包裹 @import\n- .ttf/.otf/.woff/.woff2 链接自动生成 @font-face'
-                  rows="5"
-                ></textarea>
-              </div>
-
-              <div class="font-add-card">
-                <div class="font-add-card-title">
-                  <span class="pill">方式二</span>
+                  <span class="pill">推荐</span>
                   <span>填写链接自动识别</span>
                 </div>
-                <p class="font-add-desc">只填一个 URL 即可，CSS 结尾走 @import，字体文件走 @font-face。</p>
+                <p class="font-add-desc">URL 以 .css 结尾时会生成 @import("链接")，.ttf/.otf/.woff/.woff2/.tiff 则生成对应格式的 @font-face。</p>
                 <div class="font-add-field">
                   <label for="font-url-input">URL 链接</label>
-                  <input type="text" id="font-url-input" placeholder="例如 https://example.com/font.woff2 或 result.css" class="text_pole">
+                  <input type="text" id="font-url-input" placeholder="例如 https://阿巴阿巴.比哦比哦.tiff 或 fonts.css" class="text_pole">
                 </div>
                 <div class="font-add-field">
                   <label for="font-name-input">Family 名称</label>
-                  <input type="text" id="font-name-input" placeholder="自定义字体名称" class="text_pole">
+                  <input type="text" id="font-name-input" placeholder="自定义字体名称（用于 @font-face）" class="text_pole">
+                </div>
+                <div class="font-generated-preview">
+                  <div class="font-generated-header">生成的 CSS</div>
+                  <pre id="font-css-preview" class="font-css-preview">填写链接后将自动展示 @import 或 @font-face</pre>
                 </div>
                 <button id="add-font-btn" class="menu_button compact-btn full-width">+ 添加</button>
-                <div class="font-add-hint">提示：没有 @font-face 时请填写 Family 名称，以便自动生成。</div>
+                <div class="font-add-hint">提示：只需一条链接，插件会自动选择 @import 或 @font-face。</div>
+              </div>
+
+              <div class="font-add-card">
+                <div class="font-add-card-title">
+                  <span class="pill">备用</span>
+                  <span>手动粘贴 CSS</span>
+                </div>
+                <p class="font-add-desc">仍然支持直接粘贴 @import 或完整 @font-face 代码。</p>
+                <textarea
+                  id="font-input"
+                  class="font-input-area"
+                  placeholder='在此粘贴完整 CSS 代码；如果只粘贴链接，也会按上方规则自动识别。'
+                  rows="5"
+                ></textarea>
               </div>
             </div>
           </div>
@@ -343,6 +337,16 @@ export class FontManagerUI {
       addFontBtn.addEventListener('click', () => this.handleAddFont());
     }
 
+    // 即时展示自动生成的 CSS
+    const urlInput = this.container.querySelector('#font-url-input');
+    const nameInput = this.container.querySelector('#font-name-input');
+    if (urlInput) {
+      urlInput.addEventListener('input', () => this.updateCssPreview());
+    }
+    if (nameInput) {
+      nameInput.addEventListener('input', () => this.updateCssPreview());
+    }
+
     // 搜索框（搜索时重置到第1页）
     const searchInput = this.container.querySelector('#font-search');
     if (searchInput) {
@@ -487,11 +491,14 @@ export class FontManagerUI {
       return;
     }
 
-    // 如果仅提供链接且不是CSS代码，优先要求family名称
+    // 如果仅提供链接且格式不是 css，优先要求 family 名称
     if (!cssInput && urlInput && !customName) {
-      logger.warn('[FontManagerUI.handleAddFont] 仅提供链接但未填写family名称');
-      toastr.warning('请输入字体family名称');
-      return;
+      const lowerUrl = urlInput.toLowerCase();
+      if (!lowerUrl.endsWith('.css')) {
+        logger.warn('[FontManagerUI.handleAddFont] 仅提供字体文件链接但未填写family名称');
+        toastr.warning('请输入字体family名称');
+        return;
+      }
     }
 
     logger.debug('[FontManagerUI.handleAddFont] 开始添加字体，自定义名称:', customName || '无');
@@ -525,12 +532,14 @@ export class FontManagerUI {
     // 添加字体
     const success = await this.fontManager.addFont(fontData);
 
-    if (success) {
-      // 清空输入
-      this.container.querySelector('#font-input').value = '';
-      const urlInputEl = this.container.querySelector('#font-url-input');
-      if (urlInputEl) urlInputEl.value = '';
-      this.container.querySelector('#font-name-input').value = '';
+      if (success) {
+        // 清空输入
+        this.container.querySelector('#font-input').value = '';
+        const urlInputEl = this.container.querySelector('#font-url-input');
+        if (urlInputEl) urlInputEl.value = '';
+        this.container.querySelector('#font-name-input').value = '';
+
+        this.updateCssPreview();
 
       // 自动应用
       await this.fontManager.setCurrentFont(fontData.name);
@@ -542,6 +551,31 @@ export class FontManagerUI {
       logger.warn('[FontManagerUI.handleAddFont] 字体添加失败:', fontData.name);
       toastr.error('字体添加失败，可能已存在同名字体');
     }
+  }
+
+  /**
+   * 根据链接和 family 预览将要生成的 CSS
+   */
+  updateCssPreview() {
+    const previewEl = this.container.querySelector('#font-css-preview');
+    if (!previewEl) return;
+
+    const url = this.container.querySelector('#font-url-input')?.value.trim();
+    const family = this.container.querySelector('#font-name-input')?.value.trim() || null;
+
+    if (!url) {
+      previewEl.textContent = '填写链接后将自动展示 @import 或 @font-face';
+      return;
+    }
+
+    const built = this.fontManager.buildCssFromUrl(url, family || null);
+
+    if (!built) {
+      previewEl.textContent = '链接格式不正确，请输入以 http/https 开头的有效地址';
+      return;
+    }
+
+    previewEl.textContent = built.css;
   }
 
   /**

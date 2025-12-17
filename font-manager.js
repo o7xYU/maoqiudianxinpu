@@ -47,6 +47,74 @@ export class FontManager {
   }
 
   /**
+   * 根据直接链接生成可用的 CSS 片段
+   *
+   * @description
+   * 支持自动识别 .css 和字体文件链接，生成对应的 @import 或 @font-face
+   *
+   * @param {string} url - 字体或 CSS 链接
+   * @param {string|null} [familyName=null] - 自定义的字体族名称
+   * @returns {{ css: string, fontFamily: string|null }|null}
+   */
+  buildCssFromUrl(url, familyName = null) {
+    const trimmedUrl = url.trim();
+
+    const getExtension = (link) => {
+      const cleanUrl = link.split(/[?#]/)[0];
+      const parts = cleanUrl.split('.');
+      return parts.length > 1 ? parts.pop().toLowerCase() : '';
+    };
+
+    const deriveNameFromUrl = (link) => {
+      try {
+        const cleanUrl = link.split(/[?#]/)[0];
+        const segments = cleanUrl.split('/');
+        const last = segments.pop() || '';
+        const base = last.split('.').shift();
+        return base || null;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const mapFormat = (ext) => {
+      const map = {
+        ttf: 'truetype',
+        ttc: 'truetype',
+        otf: 'opentype',
+        woff: 'woff',
+        woff2: 'woff2',
+        tiff: 'truetype'
+      };
+      return map[ext] || '';
+    };
+
+    if (!/^(https?:\/\/|\/\/)[^\s]+$/i.test(trimmedUrl)) {
+      return null;
+    }
+
+    const ext = getExtension(trimmedUrl);
+    const resolvedFamily = familyName || deriveNameFromUrl(trimmedUrl) || null;
+
+    if (ext === 'css') {
+      return {
+        css: `@import("${trimmedUrl}");`,
+        fontFamily: resolvedFamily
+      };
+    }
+
+    const format = mapFormat(ext);
+
+    const familyForFace = resolvedFamily || 'CustomFont';
+    const cssBlock = `@font-face {\n  font-family: '${familyForFace}';\n  src: url('${trimmedUrl}')${format ? ` format('${format}')` : ''};\n  font-weight: normal;\n  font-style: normal;\n}`;
+
+    return {
+      css: cssBlock,
+      fontFamily: familyForFace
+    };
+  }
+
+  /**
    * 初始化字体管理器
    * 
    * @description
@@ -269,65 +337,26 @@ export class FontManager {
 
     const trimmedInput = input.trim();
 
-    const getExtension = (url) => {
-      const cleanUrl = url.split(/[?#]/)[0];
-      const parts = cleanUrl.split('.');
-      return parts.length > 1 ? parts.pop().toLowerCase() : '';
-    };
-
-    const mapFormat = (ext) => {
-      const map = {
-        ttf: 'truetype',
-        ttc: 'truetype',
-        otf: 'opentype',
-        woff: 'woff',
-        woff2: 'woff2',
-        tiff: 'truetype'
-      };
-      return map[ext] || '';
-    };
-
-    const deriveNameFromUrl = (url) => {
-      try {
-        const cleanUrl = url.split(/[?#]/)[0];
-        const segments = cleanUrl.split('/');
-        const last = segments.pop() || '';
-        const base = last.split('.').shift();
-        return base || null;
-      } catch (e) {
-        return null;
-      }
-    };
-
     // 直接输入链接的情况
     const isDirectUrl = /^(https?:\/\/|\/\/)[^\s]+$/i.test(trimmedInput);
     if (isDirectUrl) {
       const url = trimmedInput;
-      const ext = getExtension(url);
-      const familyName = customName || deriveNameFromUrl(url);
+      const directCss = this.buildCssFromUrl(url, customName);
 
-      if (!familyName) {
+      if (!directCss) {
         logger.warn('[FontManager.parseFont] 直接链接缺少family名称，且无法从URL推断');
         return null;
       }
 
-      let cssBlock = '';
-      if (ext === 'css') {
-        cssBlock = `@import url("${url}");`;
-      } else {
-        const format = mapFormat(ext);
-        cssBlock = `@font-face {\n  font-family: '${familyName}';\n  src: url('${url}')${format ? ` format('${format}')` : ''};\n  font-weight: normal;\n  font-style: normal;\n}`;
-      }
-
-      const defaultName = familyName;
+      const defaultName = directCss.fontFamily || customName || `Font-${Date.now()}`;
 
       return {
         name: defaultName,
         displayName: defaultName,
         url: url,
-        fontFamily: familyName,
+        fontFamily: directCss.fontFamily || defaultName,
         fontId: null,
-        css: cssBlock,
+        css: directCss.css,
         tags: [],
         order: Date.now(),
         addedAt: new Date().toISOString(),
